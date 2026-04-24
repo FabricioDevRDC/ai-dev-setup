@@ -5,7 +5,7 @@ Automated developer environment setup for engineers who use Claude Code + Windsu
 ## Quick Start
 
 ```bash
-git clone https://github.com/FabricioZAGA/ai-dev-setup.git
+git clone https://github.com/FabricioDevRDC/ai-dev-setup.git
 cd ai-dev-setup
 chmod +x install.sh
 ./install.sh
@@ -153,4 +153,4 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ---
 
-*Built by [@FabricioZAGA](https://github.com/FabricioZAGA)*
+*Built by [@FabricioDevRDC](https://github.com/FabricioDevRDC)*

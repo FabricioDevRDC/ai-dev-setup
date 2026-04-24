@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ai-dev-setup — Automated developer environment setup
-# https://github.com/FabricioZAGA/ai-dev-setup
+# https://github.com/FabricioDevRDC/ai-dev-setup
 #
 # Usage:
 #   ./install.sh              Full interactive setup
@@ -21,9 +21,9 @@ print_banner() {
   echo ""
   echo -e "${BOLD}${CYAN}"
   echo "  ┌─────────────────────────────────────────┐"
-  echo "  │         ai-dev-setup  v1.0.0            │"
+  echo "  │         ai-dev-setup  v2.0.0            │"
   echo "  │   AI-powered developer environment      │"
-  echo "  │   github.com/FabricioZAGA/ai-dev-setup  │"
+  echo "  │  github.com/FabricioDevRDC/ai-dev-setup  │"
   echo "  └─────────────────────────────────────────┘"
   echo -e "${NC}"
 }
