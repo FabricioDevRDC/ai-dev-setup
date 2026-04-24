@@ -8,209 +8,188 @@
 
 ## Problem Statement
 
-Documentation rots because nobody updates it after deploying code. Engineers write great PRs with context, but that knowledge never makes it into Confluence, Dev Portal, READMEs, or Jira. The gap between "code deployed" and "docs updated" is where institutional knowledge goes to die.
+Documentation is scattered across Confluence, Dev Portal, GitHub READMEs, Jira, and Google Docs. Nobody knows where docs live, if they're current, or if they exist at all. After deploying, nobody updates them. Engineers waste time asking "where is the doc for X?" or discovering stale runbooks during incidents.
 
 ## Solution
 
-An **intelligent documentation system** that:
-1. **Detects** when a PR is merged or a task is completed
-2. **Decides** what type of documentation needs updating (not everything — only what's relevant)
-3. **Generates or updates** docs in the right place (Confluence, GitHub README, Dev Portal, Jira)
-4. **Uses existing RDC OS tools** — MCPs, skills, and agents already connected to our systems
+**One command: `/auto-docs`**
 
-## Why This Works: What RDC OS Already Gives Us
+Run it in any repo. It figures out everything on its own:
+1. **Finds** all existing docs for the current project (Confluence, README, Dev Portal, Jira, Google Docs, Glean)
+2. **Analyzes** what changed (from the latest PR, a specific PR, or a Jira ticket)
+3. **Decides** what's worth updating — and what's not (using an AI classification engine)
+4. **Updates** existing docs or creates new ones in the right place
+5. **Reports** what it did, what it skipped, and what needs manual attention
 
-We don't need to build integrations from scratch. RDC OS Claude Code already has:
-
-| Platform | Read | Write | How |
-|----------|------|-------|-----|
-| **Confluence** | Search pages, read content, get hierarchy | Create pages, update pages, add comments | Atlassian MCP |
-| **Jira** | Get issues, JQL search, metadata | Create issues, edit, comment, transition | Atlassian MCP |
-| **Google Docs** | Read text content | Create, write, replace, format | Google Workspace MCP |
-| **Google Slides** | Read metadata, thumbnails | Create presentations, add slides | Google Workspace MCP |
-| **GitHub** | Read repos, PRs, diffs | Commit, create PRs, comment | `gh` CLI |
-| **Dev Portal** | Query ownership, dependencies, tier, health | Read-only (output to other targets) | `/rdc-os:devportal` skill |
-| **Glean** | Cross-source search (Confluence, Jira, Slack, GitHub) | Read-only | Glean MCP |
-| **New Relic** | NRQL queries, SLOs, alerts | Read-only (output to other targets) | `/rdc-os:observability` skill |
-| **SonarCloud** | Quality gates, coverage, code smells | Read-only (output to other targets) | `/rdc-os:quality` skill |
-
-### Key RDC OS Skills We'll Use
-
-| Skill | What it does for us |
-|-------|---------------------|
-| `/rdc-os:orient` | Generates comprehensive service documentation (ownership, architecture, costs, observability) — the ultimate service README |
-| `/rdc-os:architecture` | ADR templates, architecture patterns, Tech Radar compliance |
-| `/rdc-os:devportal` | Service metadata, ownership, tier, dependencies, SoundCheck health |
-| `/rdc-os:observability` | New Relic monitoring setup, SLOs, error rates — for runbook generation |
-| `/rdc-os:quality` | SonarCloud quality gates, coverage — for quality reports |
-| `/rdc-os:graphql` | Pantheon subgraph architecture — for API documentation |
-| `/rdc-os:pr-standards` | PR template detection, review standards |
-| `/rdc-os:report` | Generate narrative reports with charts (HTML/markdown) |
-| `/rdc-os:jira` | Jira issue management, linking docs to tickets |
+No questions asked. Fire and forget. The engineer runs `/auto-docs` and goes back to coding.
 
 ---
 
-## The AI Decision Engine: How It Decides What to Document
+## How It Works
 
-This is the core differentiator. The automator doesn't blindly update everything — it classifies the change and routes to the right doc target.
-
-### Classification Matrix
-
-| Change Type | Signals (from PR diff + Jira) | Doc Target | Action |
-|-------------|-------------------------------|------------|--------|
-| **New feature** | `feat()` commit, new routes/endpoints, new UI components | Confluence + README + Jira | Create feature doc page, update README, comment on Jira |
-| **API change** | Modified route handlers, new/changed GraphQL resolvers, schema changes | Confluence API docs + Dev Portal | Update API reference, flag breaking changes |
-| **Infrastructure** | Helm charts, Terraform, CloudFormation, Dockerfile changes | Confluence runbook + Architecture ADR | Update deployment runbook, create ADR if architectural |
-| **Config change** | New env vars, feature flags, secrets references | Confluence runbook + README | Update config reference section |
-| **Bug fix** | `fix()` commit, linked to bug ticket | Jira comment only | Add resolution summary to Jira ticket |
-| **Refactor** | `refactor()` commit, no behavioral change | No docs needed | Skip (log decision) |
-| **Test only** | `test()` commit, only test files changed | No docs needed | Skip (log decision) |
-| **Dependency update** | `chore()` commit, lock file changes | Changelog only | Append to CHANGELOG |
-
-### Decision Flow
+### Input Flexibility
 
 ```
-PR merged → Read diff + title + body + linked Jira ticket
-  │
-  ├─ Classify change type (feat/fix/refactor/infra/config/test/chore)
-  │
-  ├─ If type needs docs:
-  │   ├─ Search existing docs (Glean + Confluence CQL) for related pages
-  │   ├─ If page exists → UPDATE with new info
-  │   └─ If no page → CREATE new doc from template
-  │
-  ├─ If type is skip-worthy:
-  │   └─ Log "No docs needed for [type]: [reason]" → done
-  │
-  └─ Post summary: what was updated, links, and any manual follow-ups needed
+/auto-docs              → uses the latest merged PR on current branch
+/auto-docs 1234         → uses PR #1234
+/auto-docs FIRE-3772    → uses Jira ticket, finds linked PR
+/auto-docs check        → scan only, don't update anything — just report gaps
 ```
+
+### The AI Decision Engine
+
+Not every change needs docs. The command classifies the change first:
+
+| Change Type | What Triggers It | What Gets Updated |
+|-------------|-----------------|-------------------|
+| New feature | `feat()` commit, new endpoints/commands | Confluence + README + Jira comment |
+| API change | Route/schema changes | Confluence API docs + README |
+| Infrastructure | Helm, Terraform, CI config | Confluence runbook + ADR |
+| Config change | New env vars, feature flags | README config section + runbook |
+| Bug fix | `fix()` commit | Jira comment only |
+| Refactor / tests / deps | `refactor()`, `test()`, `chore()` | **Nothing** — skip with reason |
+
+### Where It Searches for Existing Docs
+
+| Source | How | What It Finds |
+|--------|-----|---------------|
+| **Confluence** | CQL search via Atlassian MCP | Service pages, API docs, runbooks, ADRs |
+| **GitHub** | Read files in repo | README, CHANGELOG, docs/, ARCHITECTURE.md |
+| **Dev Portal** | `/rdc-os:devportal` skill | Owner, tier, dependencies, health score |
+| **Jira** | Atlassian MCP | Linked tickets, acceptance criteria, context |
+| **Glean** | Glean MCP | Cross-source search: Confluence + Jira + Slack + Drive |
+| **Google Docs** | Google Workspace MCP | Team documents, design docs, specs |
+
+### What It Can Write To
+
+| Target | Capability | MCP/Tool |
+|--------|-----------|----------|
+| **Confluence** | Create pages, update pages, add comments | Atlassian MCP (`createConfluencePage`, `updateConfluencePage`) |
+| **README.md** | Edit sections surgically | Edit tool + git commit |
+| **Jira** | Add documentation summary comments | Atlassian MCP (`addCommentToJiraIssue`) |
+| **CHANGELOG.md** | Append entries | Edit tool + git commit |
+| **Google Docs** | Create or update documents | Google Workspace MCP (`docs_create`, `docs_writeText`) |
 
 ---
 
-## What We Need to Build Today
+## RDC OS Skills We Leverage
 
-### Goal 1: `/auto-docs` Command (Priority: CRITICAL)
+These already exist — we don't build them, we use them:
 
-The main command that ties everything together.
+| Skill | What It Gives Us |
+|-------|-----------------|
+| `/rdc-os:orient` | Full service documentation generation (ownership, architecture, costs, observability) |
+| `/rdc-os:devportal` | Service metadata, tier, dependencies, SoundCheck health |
+| `/rdc-os:architecture` | ADR templates, Tech Radar, architecture patterns |
+| `/rdc-os:observability` | New Relic monitoring data for runbook generation |
+| `/rdc-os:quality` | SonarCloud quality metrics for quality reports |
+| `/rdc-os:graphql` | Pantheon subgraph info for API documentation |
+| `/rdc-os:jira` | Jira ticket management, linking docs to work items |
+| `/rdc-os:report` | Narrative reports with charts |
 
-**Input:** PR number or Jira ticket
-**Output:** Documentation created/updated in the right places
+---
 
-**Steps the command follows:**
-1. Fetch PR details (`gh pr view`) + diff (`gh pr diff`)
-2. Fetch linked Jira ticket (Atlassian MCP `getJiraIssue`)
-3. Classify the change using the matrix above
-4. Search for existing related docs (Glean MCP `search` + Confluence `searchConfluenceUsingCql`)
-5. Generate/update docs in the appropriate target:
-   - **Confluence:** Use `createConfluencePage` or `updateConfluencePage`
-   - **README:** Edit repo README via `gh` CLI commit
-   - **Jira:** Add comment with `addCommentToJiraIssue`
-6. Report what was done and provide links
+## What We Build Today
 
-**Deliverable:** `commands/auto-docs.md`
+### Track 1: The `/auto-docs` Command (CRITICAL — 2-3 people)
 
-### Goal 2: `/doc-check` Scanner (Priority: HIGH)
+The single command file: `commands/auto-docs.md`
 
-Scans a repo/service and reports what documentation is missing or stale.
+**Already written.** See `commands/auto-docs.md` in the repo. It covers:
+- Context gathering (repo, DevPortal, CLAUDE.md)
+- Change detection (PR diff, Jira ticket, commit classification)
+- Doc search (Confluence, GitHub, Glean, Google Docs, DevPortal)
+- Doc generation/update (Confluence pages, README, Jira comments, CHANGELOG)
+- Final report with actions taken, skipped, and suggestions
 
-**What it checks:**
-- Does the repo have a README? Is it up to date?
-- Does the service have a Confluence page? When was it last updated?
-- Are there ADRs for major architectural decisions?
-- Does Dev Portal metadata match current state?
-- Are runbooks current with deployment setup?
-- Is API documentation matching current routes?
+**What needs testing and refinement:**
+- Test with a real merged PR in an existing RDC repo
+- Test Confluence page creation and update flow
+- Test Jira comment posting
+- Test the "check" mode (scan only)
+- Tune the classification — make sure it doesn't over-document or under-document
 
-**How it checks:**
-- Read repo files (README, CLAUDE.md, docs/)
-- Query Confluence via CQL for service name
-- Query Dev Portal for metadata
-- Query Glean for related docs
-- Compare last-modified dates vs recent deploy dates
+### Track 2: GitHub Action Trigger (HIGH — 1 person)
 
-**Deliverable:** `commands/doc-check.md`
+`.github/workflows/doc-automator.yml` — triggers `/auto-docs` automatically when a PR merges to main.
 
-### Goal 3: Deploy Detection Trigger (Priority: HIGH)
+Options:
+- Run Claude Code CLI in the action (if available in CI)
+- Post a Slack notification with the command to run
+- Create a Jira task to run `/auto-docs`
 
-GitHub Action that runs `/auto-docs` when a PR merges.
+### Track 3: Demo & Presentation (HIGH — 1 person)
 
-**Deliverable:** `.github/workflows/doc-automator.yml`
-
-### Goal 4: Demo & Presentation (Priority: HIGH)
-
-Live demo: merge a PR → docs auto-update in Confluence + README + Jira.
+Live demo showing:
+1. Engineer merges a PR
+2. Runs `/auto-docs` (or it triggers automatically)
+3. Show: Confluence page updated, Jira comment added, README edited
+4. Run `/auto-docs check` on a repo with stale docs — show the gap report
 
 ---
 
 ## Task Assignments
 
-| # | Task | Owner | Est. | Priority |
-|---|------|-------|------|----------|
-| 1 | `/auto-docs` — classification engine + Confluence integration | TBD | 3h | CRITICAL |
-| 2 | `/auto-docs` — README + Jira comment + Glean search | TBD | 3h | CRITICAL |
-| 3 | `/doc-check` — scanner command with multi-source checks | TBD | 2h | HIGH |
-| 4 | GitHub Action workflow for deploy detection | TBD | 2h | HIGH |
-| 5 | Demo script + presentation + integration testing | Fabricio | 2h | HIGH |
+| # | Task | Owner | Est. |
+|---|------|-------|------|
+| 1 | Test `/auto-docs` with real PRs — fix classification edge cases | TBD | 3h |
+| 2 | Test `/auto-docs` Confluence write flow — create + update pages | TBD | 2h |
+| 3 | Test `/auto-docs check` mode — gap scanner across sources | TBD | 2h |
+| 4 | GitHub Action workflow for auto-trigger on merge | TBD | 2h |
+| 5 | Demo script + presentation + end-to-end integration | Fabricio | 2h |
 
 ---
 
-## Timeline (Today)
+## Timeline
 
 | Time (CST) | Activity |
 |------------|----------|
-| 12:00 - 12:30 | Kickoff: clone repo, install, review this plan |
-| 12:30 - 3:30 | Build phase: everyone on their assigned task |
-| 3:30 - 4:30 | Integration: wire it all together, test end-to-end |
+| 12:00 - 12:30 | Kickoff: clone, install, review this plan + `commands/auto-docs.md` |
+| 12:30 - 3:30 | Build & test: everyone on their track |
+| 3:30 - 4:30 | Integration: run full end-to-end, fix issues |
 | 4:30 - 5:00 | Demo prep + rehearsal |
 | 5:00 | Presentations |
 
 ---
 
-## Setup Instructions
+## Setup
 
 ```bash
 # 1. Clone
 git clone https://github.com/FabricioDevRDC/ai-dev-setup.git
 cd ai-dev-setup
 
-# 2. Install (sets up all 13 commands + hooks)
+# 2. Install all commands + hooks
 chmod +x install.sh
 ./install.sh
 
-# 3. Verify — open Claude Code and test a command
-claude
-# then type: /standup
-
-# 4. Authenticate MCPs (one-time, in Claude Code)
+# 3. Authenticate MCPs (one-time, inside Claude Code)
 # Type /mcp → select "atlassian" → OAuth via Okta SSO
 # Type /mcp → select "google-workspace" → OAuth
 
-# 5. Create your branch
+# 4. Test it
+claude
+# then type: /auto-docs check
+
+# 5. Branch
 git checkout -b <your-name>/hackathon/doc-automator
 ```
 
+---
+
 ## Success Criteria
 
-- [ ] `/auto-docs <PR>` classifies a change and updates the right documentation target
-- [ ] Confluence pages are created/updated automatically for feature and infra changes
-- [ ] Jira tickets get documentation summary comments on completion
-- [ ] README is updated when new features/commands are added
-- [ ] `/doc-check` scans a repo and reports documentation gaps
-- [ ] GitHub Action triggers doc generation on PR merge
+- [ ] `/auto-docs` on a real merged PR classifies the change correctly
+- [ ] Confluence page is created or updated with relevant content
+- [ ] Jira ticket gets a documentation summary comment
+- [ ] README is surgically updated (not rewritten) for feature changes
+- [ ] `/auto-docs check` reports documentation gaps across all sources
+- [ ] Trivial changes (refactor, tests, deps) are correctly skipped
 - [ ] Live demo works end-to-end in under 3 minutes
 
 ---
 
-## Technical Notes
-
-- Commands are plain `.md` files in `commands/` — the filename becomes the slash command
-- To add a command: create `commands/my-command.md`, then `./install.sh --commands`
-- The installer copies to `~/.claude/commands/` where Claude Code picks them up
-- MCPs require one-time OAuth auth (Atlassian via Okta, Google via browser)
-- Glean requires explicit auth via the authenticate tool
-- All MCP write operations are in `ask` permission mode (user confirms before writing)
-
-## Existing Commands Reference
+## Existing Commands (already installed)
 
 | Command | What it does |
 |---------|-------------|
