@@ -8,123 +8,197 @@
 
 ## Problem Statement
 
-Documentation is scattered across Confluence, Dev Portal, GitHub READMEs, Jira, and Google Docs. Nobody knows where docs live, if they're current, or if they exist at all. After deploying, nobody updates them. Engineers waste time asking "where is the doc for X?" or discovering stale runbooks during incidents.
+Documentation is scattered across Confluence, Dev Portal, GitHub READMEs, Jira, and Google Docs. Nobody updates it after deploying. Engineers waste time asking "where is the doc for X?" or discovering stale runbooks during incidents.
 
 ## Solution
 
-**One command: `/auto-docs`**
+A set of **AI-powered slash commands** (skills) that follow the same pattern as `/change-request`:
 
-Run it in any repo. It figures out everything on its own:
-1. **Finds** all existing docs for the current project (Confluence, README, Dev Portal, Jira, Google Docs, Glean)
-2. **Analyzes** what changed (from the latest PR, a specific PR, or a Jira ticket)
-3. **Decides** what's worth updating — and what's not (using an AI classification engine)
-4. **Updates** existing docs or creates new ones in the right place
-5. **Reports** what it did, what it skipped, and what needs manual attention
+1. **Read** — look at the PR, understand the changes, fetch linked Jira ticket
+2. **Decide** — classify the change, determine what docs need updating
+3. **Act** — create or update docs in the right place (Confluence, README, Jira, Dev Portal)
+4. **Report** — show what was done, what was skipped, and why
 
-No questions asked. Fire and forget. The engineer runs `/auto-docs` and goes back to coding.
+Packaged as a **new standalone repo** that can be integrated into RDC OS later.
 
 ---
 
-## How It Works
+## The `/change-request` Pattern (our model)
 
-### Input Flexibility
+The team already has `/cr` as a working example of this exact pattern:
 
 ```
-/auto-docs              → uses the latest merged PR on current branch
-/auto-docs 1234         → uses PR #1234
-/auto-docs FIRE-3772    → uses Jira ticket, finds linked PR
-/auto-docs check        → scan only, don't update anything — just report gaps
+/cr FIRE-3772
+  │
+  ├─ 1. Fetch the Jira ticket (Atlassian MCP)
+  ├─ 2. Find linked PR, read the diff (gh CLI)
+  ├─ 3. Analyze: components, change type, dependencies, risks
+  ├─ 4. Fill out the CR template (all 14 sections)
+  ├─ 5. Create the CR in Jira (Atlassian MCP createJiraIssue)
+  └─ 6. Report: CR link, risk summary, next steps
 ```
 
-### The AI Decision Engine
+Every documentation skill follows this same flow — only the **template** and **target** change.
 
-Not every change needs docs. The command classifies the change first:
+---
 
-| Change Type | What Triggers It | What Gets Updated |
-|-------------|-----------------|-------------------|
-| New feature | `feat()` commit, new endpoints/commands | Confluence + README + Jira comment |
-| API change | Route/schema changes | Confluence API docs + README |
-| Infrastructure | Helm, Terraform, CI config | Confluence runbook + ADR |
-| Config change | New env vars, feature flags | README config section + runbook |
+## Skills Inventory
+
+### What Already Exists in RDC OS
+
+| RDC OS Skill | What it does | How we use it |
+|-------------|-------------|---------------|
+| `/rdc-os:orient` | Full service documentation (ownership, architecture, costs, observability) | Base data for any doc generation |
+| `/rdc-os:devportal` | Service metadata, tier, dependencies, SoundCheck health | Read service context, check if DevPortal is stale |
+| `/rdc-os:architecture` | ADR templates, Tech Radar, architecture patterns | Generate ADRs for architectural changes |
+| `/rdc-os:observability` | New Relic NRQL, SLOs, alerts | Generate monitoring sections for runbooks |
+| `/rdc-os:quality` | SonarCloud quality gates, coverage | Generate quality reports |
+| `/rdc-os:graphql` | Pantheon subgraph info | API documentation for GraphQL services |
+| `/rdc-os:jira` | Jira issue management | Read/write Jira tickets |
+| `/rdc-os:report` | Narrative reports with charts | Format and present documentation |
+| `/rdc-os:pr-standards` | PR template detection | Detect repo documentation patterns |
+
+### MCPs Available (Read + Write)
+
+| Platform | Read | Write | MCP Tool |
+|----------|------|-------|----------|
+| **Confluence** | `searchConfluenceUsingCql`, `getConfluencePage` | `createConfluencePage`, `updateConfluencePage` | Atlassian MCP |
+| **Jira** | `getJiraIssue`, `searchJiraIssuesUsingJql` | `createJiraIssue`, `editJiraIssue`, `addCommentToJiraIssue` | Atlassian MCP |
+| **Google Docs** | `docs_getText` | `docs_create`, `docs_writeText`, `docs_replaceText` | Google Workspace MCP |
+| **Google Drive** | `drive_search` | `drive_createFolder`, `drive_moveFile` | Google Workspace MCP |
+| **Glean** | `search`, `chat`, `read_document` | (read-only) | Glean MCP |
+| **GitHub** | `gh pr view`, `gh pr diff` | `gh` commit, PR create | gh CLI |
+| **Dev Portal** | Query via skill | (read-only, update via catalog-info.yaml) | `/rdc-os:devportal` |
+
+---
+
+## Skills to Create
+
+Each skill follows the `/cr` pattern: read → classify → act → report.
+
+### Skill 1: `/auto-docs` — The Orchestrator (CRITICAL)
+
+**The main command.** Reads a PR or Jira ticket, classifies the change, and routes to the appropriate doc actions.
+
+```
+/auto-docs              → latest merged PR on current branch
+/auto-docs 1234         → PR #1234
+/auto-docs FIRE-3772    → Jira ticket, finds linked PR
+/auto-docs check        → scan only, report gaps, don't update
+```
+
+**Steps (following /cr pattern):**
+1. **Fetch** — PR details + diff + linked Jira ticket
+2. **Classify** — what type of change (feat/fix/infra/config/refactor)
+3. **Search** — find ALL existing docs (Confluence, README, Glean, DevPortal, Google Docs)
+4. **Decide** — map change type → doc targets using classification matrix
+5. **Act** — update or create docs in each target
+6. **Report** — summary of actions taken, skipped, and suggestions
+
+**Classification Matrix:**
+
+| Change Type | Signals | Doc Targets |
+|-------------|---------|-------------|
+| New feature | `feat()`, new routes/commands | Confluence + README + Jira comment |
+| API change | Route/schema modifications | Confluence API docs + README |
+| Infrastructure | Helm, Terraform, CI, Docker | Confluence runbook + ADR |
+| Config change | New env vars, feature flags | README config + Confluence runbook |
 | Bug fix | `fix()` commit | Jira comment only |
-| Refactor / tests / deps | `refactor()`, `test()`, `chore()` | **Nothing** — skip with reason |
+| Refactor/tests/deps | `refactor()`, `test()`, `chore()` | **Skip** — no docs needed |
 
-### Where It Searches for Existing Docs
+**Status:** Already written in `commands/auto-docs.md`. Needs testing and refinement.
 
-| Source | How | What It Finds |
-|--------|-----|---------------|
-| **Confluence** | CQL search via Atlassian MCP | Service pages, API docs, runbooks, ADRs |
-| **GitHub** | Read files in repo | README, CHANGELOG, docs/, ARCHITECTURE.md |
-| **Dev Portal** | `/rdc-os:devportal` skill | Owner, tier, dependencies, health score |
-| **Jira** | Atlassian MCP | Linked tickets, acceptance criteria, context |
-| **Glean** | Glean MCP | Cross-source search: Confluence + Jira + Slack + Drive |
-| **Google Docs** | Google Workspace MCP | Team documents, design docs, specs |
+### Skill 2: `/doc-check` — Gap Scanner (HIGH)
 
-### What It Can Write To
+Scans a repo/service and reports what documentation is missing or stale across all sources. No writes — read-only audit.
 
-| Target | Capability | MCP/Tool |
-|--------|-----------|----------|
-| **Confluence** | Create pages, update pages, add comments | Atlassian MCP (`createConfluencePage`, `updateConfluencePage`) |
-| **README.md** | Edit sections surgically | Edit tool + git commit |
-| **Jira** | Add documentation summary comments | Atlassian MCP (`addCommentToJiraIssue`) |
-| **CHANGELOG.md** | Append entries | Edit tool + git commit |
-| **Google Docs** | Create or update documents | Google Workspace MCP (`docs_create`, `docs_writeText`) |
+```
+/doc-check              → scan current repo
+/doc-check opcity       → scan by service name
+```
 
----
+**What it checks:**
+- Does the repo have a README? When was it last updated?
+- Does the service have Confluence pages? Which types? How stale?
+- Does DevPortal metadata match current state (owner, tier, description)?
+- Are there ADRs for major decisions?
+- Is there a runbook? Is it current?
+- Are Jira tickets linked to documentation?
 
-## RDC OS Skills We Leverage
+**Output:** Gap report with severity (critical / warning / info) and links.
 
-These already exist — we don't build them, we use them:
+### Skill 3: `/doc-update <target>` — Targeted Updater (MEDIUM)
 
-| Skill | What It Gives Us |
-|-------|-----------------|
-| `/rdc-os:orient` | Full service documentation generation (ownership, architecture, costs, observability) |
-| `/rdc-os:devportal` | Service metadata, tier, dependencies, SoundCheck health |
-| `/rdc-os:architecture` | ADR templates, Tech Radar, architecture patterns |
-| `/rdc-os:observability` | New Relic monitoring data for runbook generation |
-| `/rdc-os:quality` | SonarCloud quality metrics for quality reports |
-| `/rdc-os:graphql` | Pantheon subgraph info for API documentation |
-| `/rdc-os:jira` | Jira ticket management, linking docs to work items |
-| `/rdc-os:report` | Narrative reports with charts |
+Update a specific doc target for the current project. For when you know what you want to update.
+
+```
+/doc-update confluence    → update/create Confluence service page
+/doc-update readme        → update README based on current code
+/doc-update runbook       → update/create Confluence runbook
+/doc-update adr           → create ADR for recent architectural changes
+```
+
+Uses the same data gathering as `/auto-docs` but targets a single output.
 
 ---
 
-## What We Build Today
+## Goals (Deliverables)
 
-### Track 1: The `/auto-docs` Command (CRITICAL — 2-3 people)
+### 1. New Repo
+- [x] Created: https://github.com/FabricioDevRDC/ai-dev-setup
+- [ ] Structure supports integration into RDC OS later (skills as .md files)
+- [ ] Clean README with setup instructions and skill reference
 
-The single command file: `commands/auto-docs.md`
+### 2. Skills
+- [ ] `/auto-docs` — orchestrator skill (classify + route + act)
+- [ ] `/doc-check` — gap scanner (read-only audit)
+- [ ] `/doc-update` — targeted updater (per-target doc generation)
 
-**Already written.** See `commands/auto-docs.md` in the repo. It covers:
-- Context gathering (repo, DevPortal, CLAUDE.md)
-- Change detection (PR diff, Jira ticket, commit classification)
-- Doc search (Confluence, GitHub, Glean, Google Docs, DevPortal)
-- Doc generation/update (Confluence pages, README, Jira comments, CHANGELOG)
-- Final report with actions taken, skipped, and suggestions
+### 3. Tie Skills / Orchestration
+- [ ] `/auto-docs` calls sub-skills or reuses their logic
+- [ ] Classification engine is reusable across skills
+- [ ] All skills use the same project context gathering (repo + DevPortal + Confluence search)
 
-**What needs testing and refinement:**
-- Test with a real merged PR in an existing RDC repo
-- Test Confluence page creation and update flow
-- Test Jira comment posting
-- Test the "check" mode (scan only)
-- Tune the classification — make sure it doesn't over-document or under-document
+### 4. Generalization
+- [ ] Skills work on ANY repo, not just opcity
+- [ ] Project context is derived from CLAUDE.md + catalog-info.yaml + DevPortal
+- [ ] Confluence space is auto-detected from project metadata
+- [ ] Works with or without Jira, with or without Confluence
 
-### Track 2: GitHub Action Trigger (HIGH — 1 person)
+### 5. Presentation / Demo
+- [ ] Live demo: run `/auto-docs` on a real merged PR → show Confluence update + Jira comment
+- [ ] Live demo: run `/doc-check` on a repo → show gap report
+- [ ] Slide or summary: what exists in RDC OS, what we built, how it integrates
 
-`.github/workflows/doc-automator.yml` — triggers `/auto-docs` automatically when a PR merges to main.
+---
 
-Options:
-- Run Claude Code CLI in the action (if available in CI)
-- Post a Slack notification with the command to run
-- Create a Jira task to run `/auto-docs`
+## How the AI Decides What to Document
 
-### Track 3: Demo & Presentation (HIGH — 1 person)
+This is the key question the team raised. The answer:
 
-Live demo showing:
-1. Engineer merges a PR
-2. Runs `/auto-docs` (or it triggers automatically)
-3. Show: Confluence page updated, Jira comment added, README edited
-4. Run `/auto-docs check` on a repo with stale docs — show the gap report
+**The AI doesn't guess. It classifies based on signals, then follows rules.**
+
+### Signal Sources (what the AI reads)
+1. **Conventional commit type** — `feat()`, `fix()`, `refactor()`, `docs()`, `ci()`, `chore()`
+2. **Files changed** — routes? models? config? tests? infra? UI?
+3. **PR title and body** — human-written summary of intent
+4. **Jira ticket** — acceptance criteria, ticket type (Story, Bug, Task)
+5. **Linked tickets** — parent epic, related work
+
+### Decision Rules (when NOT to document)
+- `refactor()` / `test()` / `chore()` → **always skip** (no behavioral change)
+- `docs()` → **always skip** (human already updated docs)
+- `fix()` with no user-facing impact → **Jira comment only**
+- Small internal changes (< 10 lines, no new endpoints/config) → **skip**
+
+### Decision Rules (when TO document)
+- New endpoint or route → **Confluence API docs + README**
+- New env var or feature flag → **README config + Confluence runbook**
+- Terraform / Helm / CI changes → **Confluence runbook + consider ADR**
+- New feature with Jira Story → **Confluence feature page + README + Jira comment**
+
+### The Key Principle
+> **Don't document for documentation's sake.** Only create/update docs that someone would actually look for later. If nobody would ever search for this information, skip it.
 
 ---
 
@@ -132,11 +206,11 @@ Live demo showing:
 
 | # | Task | Owner | Est. |
 |---|------|-------|------|
-| 1 | Test `/auto-docs` with real PRs — fix classification edge cases | TBD | 3h |
-| 2 | Test `/auto-docs` Confluence write flow — create + update pages | TBD | 2h |
-| 3 | Test `/auto-docs check` mode — gap scanner across sources | TBD | 2h |
-| 4 | GitHub Action workflow for auto-trigger on merge | TBD | 2h |
-| 5 | Demo script + presentation + end-to-end integration | Fabricio | 2h |
+| 1 | `/auto-docs` — test with real PRs, fix classification, test Confluence writes | TBD | 3h |
+| 2 | `/doc-check` — build gap scanner skill | TBD | 2h |
+| 3 | `/doc-update` — build targeted updater (confluence, readme, runbook modes) | TBD | 2h |
+| 4 | Generalization — make skills work on any repo, auto-detect project context | TBD | 2h |
+| 5 | Demo + presentation + end-to-end integration | Fabricio | 2h |
 
 ---
 
@@ -144,8 +218,8 @@ Live demo showing:
 
 | Time (CST) | Activity |
 |------------|----------|
-| 12:00 - 12:30 | Kickoff: clone, install, review this plan + `commands/auto-docs.md` |
-| 12:30 - 3:30 | Build & test: everyone on their track |
+| 12:00 - 12:30 | Kickoff: clone, install, review this plan |
+| 12:30 - 3:30 | Build & test: everyone on their task |
 | 3:30 - 4:30 | Integration: run full end-to-end, fix issues |
 | 4:30 - 5:00 | Demo prep + rehearsal |
 | 5:00 | Presentations |
@@ -164,12 +238,12 @@ chmod +x install.sh
 ./install.sh
 
 # 3. Authenticate MCPs (one-time, inside Claude Code)
-# Type /mcp → select "atlassian" → OAuth via Okta SSO
-# Type /mcp → select "google-workspace" → OAuth
+# /mcp → select "atlassian" → OAuth via Okta SSO
+# /mcp → select "google-workspace" → OAuth
 
-# 4. Test it
+# 4. Test
 claude
-# then type: /auto-docs check
+# type: /auto-docs check
 
 # 5. Branch
 git checkout -b <your-name>/hackathon/doc-automator
@@ -179,28 +253,23 @@ git checkout -b <your-name>/hackathon/doc-automator
 
 ## Success Criteria
 
-- [ ] `/auto-docs` on a real merged PR classifies the change correctly
-- [ ] Confluence page is created or updated with relevant content
-- [ ] Jira ticket gets a documentation summary comment
-- [ ] README is surgically updated (not rewritten) for feature changes
-- [ ] `/auto-docs check` reports documentation gaps across all sources
-- [ ] Trivial changes (refactor, tests, deps) are correctly skipped
+- [ ] `/auto-docs` on a real merged PR classifies correctly and updates Confluence + Jira
+- [ ] `/auto-docs` on a refactor/test PR correctly SKIPs with reason
+- [ ] `/doc-check` reports documentation gaps across Confluence, README, DevPortal
+- [ ] Skills work on repos other than opcity (generalized)
 - [ ] Live demo works end-to-end in under 3 minutes
+- [ ] Path to RDC OS integration is clear (skills as .md files, standard patterns)
 
 ---
 
-## Existing Commands (already installed)
+## Existing Commands Reference
 
-| Command | What it does |
-|---------|-------------|
-| `/review-comment <PR>` | AI code review with inline GitHub comments |
-| `/review-fix <PR>` | Fix review comments on your own PR |
-| `/pr-respond <PR>` | Draft replies to all open PR comments |
-| `/jira-to-windsurf <ticket>` | Generate Windsurf Cascade prompt from Jira |
-| `/branch-from-jira <ticket>` | Create named branch + PLAN.md from Jira |
-| `/split-pr [ticket]` | Split staged changes into feature + test PRs |
-| `/test-gen <file>` | Generate tests matching project patterns |
-| `/cr <ticket>` | Generate full Change Request in Jira |
-| `/risk-assessment <ticket>` | Generate Risk Assessment table |
-| `/standup [days]` | Daily standup from git + PRs + Jira |
-| `/opdev <action>` | Manage opdev environments |
+| Command | Pattern | Target |
+|---------|---------|--------|
+| `/cr <ticket>` | Read Jira → analyze PR → fill CR template → create in Jira | Jira CR project |
+| `/review-comment <PR>` | Read PR diff → find issues → post inline comments | GitHub PR |
+| `/risk-assessment <ticket>` | Read Jira → analyze risks → generate table | Google Doc / stdout |
+| `/standup [days]` | Read git + PRs + Jira → generate summary | stdout (paste to Slack) |
+| `/auto-docs <PR or ticket>` | **Read PR → classify → update docs everywhere** | **Confluence + README + Jira** |
+| `/doc-check` | **Scan all sources → report gaps** | **stdout (audit report)** |
+| `/doc-update <target>` | **Read context → update specific doc** | **Confluence / README / runbook** |
