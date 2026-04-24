@@ -42,6 +42,19 @@ After setup, these slash commands are available in Claude Code in any project:
 | `/risk-assessment <ticket or PR>` | Generates a standalone Risk Assessment table for a Change Request. |
 | `/standup [days]` | Generates a standup summary from git, PRs, and Jira activity. Defaults to 1 day; use 3 for Monday. |
 
+### Documentation Automation (NEW — Hackathon)
+
+| Command | What it does |
+|---------|-------------|
+| `/auto-docs <PR or ticket>` | Reads a PR or Jira ticket, classifies the change, searches for existing docs across Confluence/README/DevPortal/Glean, then creates or updates documentation in the right place. Fire and forget. |
+| `/auto-docs check` | Scan-only mode — reports what docs exist and what's missing without changing anything. |
+| `/doc-check` | Full documentation gap audit. Scans Confluence, README, Dev Portal, Jira, and in-repo docs. Reports critical gaps, stale pages, and missing docs with severity ratings. |
+| `/doc-update confluence` | Creates or updates the Confluence service overview page for the current project. |
+| `/doc-update readme` | Updates the repo README based on current code state. Surgical edits, not rewrites. |
+| `/doc-update runbook` | Creates or updates the Confluence deployment/operations runbook. |
+| `/doc-update adr` | Creates an Architecture Decision Record for recent architectural changes. |
+| `/doc-update jira` | Adds documentation summary comments to recent completed Jira tickets. |
+
 ### Environments
 
 | Command | What it does |
@@ -119,7 +132,7 @@ USE_CONVENTIONAL_COMMITS="true"
 
 **Required:** git ≥ 2.30, gh CLI ≥ 2.0, Node.js ≥ 18, Claude Code
 
-**Optional:** Windsurf or Cursor, Jira Atlassian MCP, Google Workspace MCP, jq
+**Optional:** Windsurf or Cursor, Jira Atlassian MCP, Google Workspace MCP, Glean MCP, jq
 
 ---
 

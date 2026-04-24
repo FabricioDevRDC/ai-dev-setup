@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.1.0 — 2026-04-24 (Hackathon: Documentation Automation)
+
+### New commands
+- `/auto-docs` — documentation automation orchestrator. Reads a PR or Jira ticket, classifies the change type, searches existing docs across Confluence/README/DevPortal/Glean, then creates or updates documentation in the right target. Supports `check` mode for scan-only audits.
+- `/doc-check` — full documentation gap scanner. Audits all docs across Confluence, GitHub README, Dev Portal, Jira. Reports critical gaps, stale pages, and missing docs with severity ratings (CRITICAL/WARNING/INFO).
+- `/doc-update` — targeted documentation updater with modes: `confluence`, `readme`, `runbook`, `adr`, `jira`. Each mode follows the `/cr` pattern: read context, analyze, generate, write to target.
+
+### AI Classification Engine
+The `/auto-docs` command classifies changes before deciding what to document:
+- `feat()` → Confluence + README + Jira comment
+- API changes → Confluence API docs
+- Infrastructure → Runbook + ADR
+- `fix()` → Jira comment only
+- `refactor()`/`test()`/`chore()` → Skip (no docs needed)
+
+### Integrations leveraged
+- Atlassian MCP (Confluence read/write, Jira read/write)
+- Google Workspace MCP (Google Docs create/update)
+- Glean MCP (cross-source documentation search)
+- DevPortal (service metadata, ownership, tier)
+- GitHub CLI (PR diffs, commits, README updates)
+
+---
+
 ## v2.0.0 — 2026-04-23
 
 ### New commands
