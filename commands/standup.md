@@ -1,4 +1,5 @@
 ---
+tier: mechanical
 model: haiku
 ---
 

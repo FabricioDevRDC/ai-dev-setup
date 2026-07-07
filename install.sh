@@ -9,6 +9,7 @@
 #   ./install.sh --hooks      Install git hooks only (for current repo)
 #   ./install.sh --configure  Re-run configuration wizard
 #   ./install.sh --settings   Install/merge cost-optimized Claude settings (opusplan)
+#   ./install.sh --route [p]  Re-resolve command models from tiers for provider p (claude|codex)
 #   ./install.sh --update     Pull latest and reinstall commands
 
 set -e
@@ -22,7 +23,7 @@ print_banner() {
   echo ""
   echo -e "${BOLD}${CYAN}"
   echo "  ┌─────────────────────────────────────────┐"
-  echo "  │         ai-dev-setup  v3.0.0            │"
+  echo "  │         ai-dev-setup  v3.1.0            │"
   echo "  │   AI-powered developer environment      │"
   echo "  │  github.com/FabricioDevRDC/ai-dev-setup  │"
   echo "  └─────────────────────────────────────────┘"
@@ -191,6 +192,9 @@ full_setup() {
   # 4. Install Claude commands
   if [[ "$INSTALL_COMMANDS" == "true" ]]; then
     install_commands
+    # 4a. Resolve each command's model from its work tier for the active provider
+    source "$SCRIPT_DIR/lib/apply-model-routing.sh"
+    apply_model_routing "${MODEL_PROVIDER:-}"
   fi
 
   # 4b. Install cost-optimized Claude settings (model: opusplan)
@@ -233,6 +237,9 @@ case "${1:-}" in
     source "$SCRIPT_DIR/lib/install-commands.sh"
     print_banner
     install_commands
+    source "$HOME/.dev-setup-config" 2>/dev/null || true
+    source "$SCRIPT_DIR/lib/apply-model-routing.sh"
+    apply_model_routing "${MODEL_PROVIDER:-}"
     ;;
   --hooks)
     print_banner
@@ -248,6 +255,12 @@ case "${1:-}" in
     print_banner
     install_claude_settings
     ;;
+  --route)
+    print_banner
+    source "$HOME/.dev-setup-config" 2>/dev/null || true
+    source "$SCRIPT_DIR/lib/apply-model-routing.sh"
+    apply_model_routing "${2:-${MODEL_PROVIDER:-}}"
+    ;;
   --update)
     print_banner
     step "Updating ai-dev-setup"
@@ -256,6 +269,9 @@ case "${1:-}" in
     git -C "$SCRIPT_DIR" pull origin "$default_branch"
     source "$SCRIPT_DIR/lib/install-commands.sh"
     install_commands
+    source "$HOME/.dev-setup-config" 2>/dev/null || true
+    source "$SCRIPT_DIR/lib/apply-model-routing.sh"
+    apply_model_routing "${MODEL_PROVIDER:-}"
     install_claude_settings
     ok "Updated to latest version."
     ;;

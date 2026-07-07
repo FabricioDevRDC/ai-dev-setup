@@ -112,6 +112,12 @@ run_configure() {
     echo -e "  ${DIM}Format: type(scope): message  →  feat(auth): add OAuth2 support${NC}"
   fi
 
+  # Model provider (RDC-OS 2.0 Fix #1 — model independence)
+  step "AI model provider"
+  echo -e "  ${DIM}Commands declare a work tier; the provider decides the actual model.${NC}"
+  echo -e "  ${DIM}Switching provider later is a config change, not a rewrite.${NC}"
+  prompt_choice "Which model provider?" "claude|codex" "claude" "MODEL_PROVIDER"
+
   # Claude commands
   local install_commands
   prompt_yn "Install Claude Code slash commands (~/.claude/commands/)?" "y" "INSTALL_COMMANDS"
@@ -132,6 +138,7 @@ GIT_NAME="$GIT_NAME"
 GIT_EMAIL="$GIT_EMAIL"
 GITHUB_USER="$GITHUB_USER"
 AI_EDITOR="$AI_EDITOR"
+MODEL_PROVIDER="$MODEL_PROVIDER"
 USE_JIRA="$USE_JIRA"
 JIRA_WORKSPACE="$JIRA_WORKSPACE"
 BRANCH_PATTERN="$BRANCH_PATTERN"

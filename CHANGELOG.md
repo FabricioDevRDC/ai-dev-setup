@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.1.0 — Model independence (RDC-OS 2.0 Fix #1 + Bet 2)
+
+Implements the "a model swap should be a config change, not a migration" principle from the RDC-OS 2.0 direction.
+
+- **Tier-based model routing.** Commands now declare a work **tier** (`mechanical` / `execution` / `reasoning`) instead of a hardcoded model. A central map (`templates/model-routing.json`) resolves tier → model per provider.
+- **Provider swap in one command:** `./install.sh --route codex` re-stamps every command's `model:` from its tier — no command prompt is touched. `claude` and `codex` ship in the map; add others by editing the JSON.
+- **`lib/apply-model-routing.sh`** resolves and stamps frontmatter; wired into full setup, `--commands`, `--update`, and the new `--route [provider]` flag.
+- **`MODEL_PROVIDER`** added to the config wizard and `~/.dev-setup-config`.
+- Sets up **Bet 2 (small models under the hood)**: the `mechanical` tier is the seam where narrow/repetitive jobs move onto cheap or fine-tuned models while `reasoning` stays on the strongest planner.
+- `tier:` is the source of truth in each command; `model:` is derived — so the v3.0 per-command models are now generated, not maintained by hand.
+
+---
+
 ## v3.0.0 — Cost optimization + RDC workflow commands
 
 ### Cost optimization (the headline)
