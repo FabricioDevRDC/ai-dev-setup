@@ -10,6 +10,20 @@ Setup now installs a **cost-efficient Claude Code config** so you don't burn Opu
 - **Per-command models** — every slash command pins its own model in frontmatter: `haiku` for mechanical commands (`/standup`, `/branch-from-jira`), `sonnet` for execution (`/test-gen`, `/split-pr`, `/doc-update`), `opus` for reasoning-heavy ones (`/cr`, `/review-pr`, `/rca`, `/cve-fix`).
 - Applied non-destructively — merges into your existing `~/.claude/settings.json` with `jq` (your permissions/env are preserved; only the model default is normalized off plain Opus). Re-run anytime with `./install.sh --settings`.
 
+### Model independence — tier-based routing (RDC-OS 2.0 Fix #1)
+
+Commands **don't hardcode a model** — they declare a **work tier**, and a central map resolves tier → model for the active provider. This is the mechanism behind RDC-OS 2.0's "a model swap should be a config change, not a migration."
+
+- Three tiers: **`mechanical`** (haiku / codex-mini), **`execution`** (sonnet / codex), **`reasoning`** (opus / codex-high).
+- The map lives in [`templates/model-routing.json`](templates/model-routing.json) — edit it to change which model a tier uses, or to add a provider.
+- Switch the whole fleet to another provider in one command:
+  ```bash
+  ./install.sh --route codex     # re-stamps all 17 commands' model: from their tier
+  ```
+- Each command keeps `tier:` as the source of truth; `model:` is derived. Routing to Codex (or whatever comes next) never touches command prompts.
+
+This also sets up **Bet 2** (small models under the hood): the `mechanical` tier is where narrow, repetitive jobs (log summarization, ticket drafting, finding-bucketing) move onto cheap/fine-tuned models while `reasoning` stays on the strongest planner.
+
 ## Quick Start
 
 ```bash
@@ -115,6 +129,7 @@ Automatically removes `Co-Authored-By:` lines from any AI assistant (Claude, Cop
 ./install.sh --check      # Check tool dependencies only
 ./install.sh --configure  # Re-run configuration wizard
 ./install.sh --settings   # Install/merge cost-optimized Claude settings (opusplan)
+./install.sh --route [p]  # Re-resolve command models from tiers for provider p (claude|codex)
 ./install.sh --commands   # Install/update Claude commands only
 ./install.sh --hooks      # Install git hooks in the current repo
 ./install.sh --update     # Pull latest and reinstall commands
@@ -132,6 +147,7 @@ GIT_NAME="Fabricio Zacarias"
 GIT_EMAIL="fabricio@example.com"
 GITHUB_USER="FabricioZAGA"
 AI_EDITOR="windsurf"
+MODEL_PROVIDER="claude"   # claude | codex — which provider the tier→model map resolves to
 USE_JIRA="true"
 JIRA_WORKSPACE="yourteam.atlassian.net"
 BRANCH_PATTERN="{username}/{ticket}/{description}"

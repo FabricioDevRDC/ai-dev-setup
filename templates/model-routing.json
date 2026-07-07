@@ -1,0 +1,47 @@
+{
+  "_comment": "RDC-OS 2.0 Fix #1 (model independence) + Bet 2 (cheap models under the hood). Commands declare a WORK TIER, not a model. This map resolves tier -> model per provider. Swapping models (or providers) is editing this file, not migrating 17 commands. Route each job to the model that does it best.",
+  "default_provider": "claude",
+  "tiers": {
+    "mechanical": {
+      "_desc": "Narrow, repetitive, deterministic work: git/gh scraping, standup/report formatting, drafting a ticket from requirements, bucketing findings. Bet 2 candidates for fine-tuned small models later.",
+      "claude": "haiku",
+      "codex": "gpt-5-codex-mini"
+    },
+    "execution": {
+      "_desc": "Applying a known pattern: writing tests, splitting a PR, updating docs, fixing review comments. Needs competence, not deep reasoning.",
+      "claude": "sonnet",
+      "codex": "gpt-5-codex"
+    },
+    "reasoning": {
+      "_desc": "Planning and judgement: change requests, PR verdicts, root-cause analysis, disposition, vuln fixes. Keep the strongest model here.",
+      "claude": "opus",
+      "codex": "gpt-5-codex-high"
+    }
+  },
+  "command_tiers": {
+    "standup": "mechanical",
+    "weekly-report": "mechanical",
+    "branch-from-jira": "mechanical",
+    "pr-respond": "mechanical",
+    "opdev": "mechanical",
+    "jira-to-windsurf": "execution",
+    "test-gen": "execution",
+    "split-pr": "execution",
+    "review-fix": "execution",
+    "doc-update": "execution",
+    "doc-check": "execution",
+    "auto-docs": "execution",
+    "risk-assessment": "execution",
+    "confluence-doc": "execution",
+    "merge-pr": "execution",
+    "pre-flight-check": "execution",
+    "cr": "reasoning",
+    "review-pr": "reasoning",
+    "review-comment": "reasoning",
+    "rca": "reasoning",
+    "appsec-disposition": "reasoning",
+    "cve-fix": "reasoning",
+    "triage-ticket": "reasoning",
+    "plan-doc": "reasoning"
+  }
+}

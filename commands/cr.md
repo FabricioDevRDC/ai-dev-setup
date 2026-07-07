@@ -1,4 +1,5 @@
 ---
+tier: reasoning
 model: opus
 ---
 
