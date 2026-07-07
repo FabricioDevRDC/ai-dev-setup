@@ -14,10 +14,16 @@
 - All PRs require passing CI before merge
 
 ## Useful Commands (Claude Code)
+- `/review-pr <PRs>` — review PRs, return a merge verdict, detect duplicate/conflicting PRs
 - `/review-comment <PR>` — review a PR and post inline GitHub comments
 - `/review-fix <PR>` — fix valid review comments on your own PR
-- `/risk-assessment <ticket or PR>` — generate a Change Request Risk Assessment
+- `/cr <ticket>` — generate a full Change Request + Risk Assessment in Jira
+- `/appsec-disposition <ticket>` — investigate & disposition AppSec/pentest findings against current code
+- `/rca <symptom or PR>` — root-cause a production incident with code evidence
 - `/jira-to-windsurf <ticket>` — analyze ticket and generate a Cascade prompt
+
+## Cost / model note
+Claude Code runs on `model: opusplan` by default here (Opus plans, Sonnet executes). Individual slash commands pin their own model via frontmatter (`haiku` for mechanical, `sonnet` for execution, `opus` for reasoning-heavy). Don't force Opus for everything — it's the biggest cost lever.
 
 ## Project-Specific Notes
 <!-- Add anything a new engineer should know that isn't obvious from the code -->

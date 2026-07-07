@@ -1,3 +1,7 @@
+---
+model: opus
+---
+
 Generate a complete Change Request (CR) from a Jira ticket — including Risk Assessment — and create it directly in the CR Jira project.
 
 Input: $ARGUMENTS  (Jira ticket ID, e.g. FIRE-3772)
@@ -140,6 +144,15 @@ Compose the CR description using this exact structure:
 - **Summary (Jira title):** `[TICKET-ID] <short description of change>`
 - **Priority:** Map from Risk Score → Critical=High, High=High, Medium=Medium, Low=Low
 - **Change Window:** Propose next available Tuesday or Wednesday 8:00 AM CST (standard deploy window), unless ticket specifies otherwise
+
+### 5b. RDC CR-project field gotchas (learned the hard way — read before creating)
+The moveinc CR project (`createJiraIssue` via Atlassian MCP or REST) has a strict create screen. These cause 400s if you get them wrong:
+- **Engineering Manager (`customfield_11318`) and Eng VP (`customfield_13932`) are REQUIRED.** VP is a multi-user field (array). If unknown, pull them from a recent CR in the same area (`searchJiraIssuesUsingJql project = CR AND labels = <team>`) and reuse.
+- **Do NOT populate `CAB Required` or `BAU Deployment` on create** — a validator rejects the create with "does not match regular expression ^$". They're set later in the workflow.
+- **Only the ~17 create-screen fields are accepted at creation.** Severity, Risk Level, Change Window, Rollback URL, PCI/HIPAA/PII, Risk-sheet URL, etc. must be set with a follow-up `editJiraIssue` AFTER the CR exists — sending them on create triggers "over-population of fields".
+- **`customfield_13758` (Improvement Type) and `customfield_14154` (Reason for Change) are rich text (ADF), not plain strings** — wrap as `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}`.
+- **`customfield_16536` (Pull Request link) is ADF too** — pass a `blockCard` node with the PR URL, not a bare string.
+- After creation, link the CR back to the source ticket(s) with `createIssueLink` (type `Relates`), and set the remaining fields via `editJiraIssue`.
 
 ### 6. Create the CR in Jira
 Use the Jira REST API to create the issue in the CR project:

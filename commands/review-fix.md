@@ -1,3 +1,7 @@
+---
+model: sonnet
+---
+
 Review all open comments on your own PR, fix the valid ones, and push back on the incorrect ones.
 
 PR branch or number: $ARGUMENTS

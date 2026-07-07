@@ -1,3 +1,7 @@
+---
+model: opus
+---
+
 You are doing a thorough code review of a GitHub PR and posting inline comments directly on GitHub. Write like a teammate, not a tool.
 
 PR reference: $ARGUMENTS

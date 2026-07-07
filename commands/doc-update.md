@@ -1,3 +1,7 @@
+---
+model: sonnet
+---
+
 You are a targeted documentation updater. You update or create a specific type of documentation for the current project. Unlike `/auto-docs` which decides for you, this command lets the engineer specify exactly what to update.
 
 Input: $ARGUMENTS (required — the doc target to update)

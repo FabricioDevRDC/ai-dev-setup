@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 Read open comments on a PR and draft + post replies as the PR author or as a reviewer.
 
 PR: $ARGUMENTS

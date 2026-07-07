@@ -1,6 +1,14 @@
-# ai-dev-setup v2.0
+# ai-dev-setup v3.0
 
-Automated developer environment setup for engineers who use Claude Code + Windsurf/Cursor. One script to configure git conventions, install AI slash commands, and enforce team standards across all your projects.
+Automated developer environment setup for RDC engineers who use Claude Code + Windsurf/Cursor. One script to configure git conventions, install AI slash commands, apply cost-optimized Claude settings, and enforce team standards across all your projects.
+
+## Cost optimization (v3.0)
+
+Setup now installs a **cost-efficient Claude Code config** so you don't burn Opus credits on everything:
+
+- **Default model: `opusplan`** — Opus does the planning/reasoning, Sonnet executes the steps. Keeps Opus quality where it matters (architecture, review, RCA) and cuts the cost of step execution.
+- **Per-command models** — every slash command pins its own model in frontmatter: `haiku` for mechanical commands (`/standup`, `/branch-from-jira`), `sonnet` for execution (`/test-gen`, `/split-pr`, `/doc-update`), `opus` for reasoning-heavy ones (`/cr`, `/review-pr`, `/rca`, `/cve-fix`).
+- Applied non-destructively — merges into your existing `~/.claude/settings.json` with `jq` (your permissions/env are preserved; only the model default is normalized off plain Opus). Re-run anytime with `./install.sh --settings`.
 
 ## Quick Start
 
@@ -21,6 +29,7 @@ After setup, these slash commands are available in Claude Code in any project:
 
 | Command | What it does |
 |---------|-------------|
+| `/review-pr <PRs>` | Reviews one or many PRs and returns a merge verdict each (APPROVE / REQUEST CHANGES / BLOCKED). Reads the real diff, checks CI + existing approvals, and **detects duplicate/conflicting PRs and already-merged fixes** so you never approve two PRs solving the same thing. Does not post anything without your go-ahead. |
 | `/review-comment <PR>` | Reviews a PR diff and posts inline GitHub comments. Checks existing discussions first so it never duplicates. Writes like a teammate, not a bot. |
 | `/review-fix <PR>` | Reads open review comments on your own PR, fixes the valid ones, pushes back with reasoning on incorrect ones, and commits. |
 | `/pr-respond <PR>` | Drafts and posts replies to all open comments on a PR — questions, concerns, or requests for context. |
@@ -38,8 +47,10 @@ After setup, these slash commands are available in Claude Code in any project:
 
 | Command | What it does |
 |---------|-------------|
-| `/cr <ticket>` | Generates a complete Change Request in Jira (all sections + Risk Assessment) from a ticket ID. |
+| `/cr <ticket>` | Generates a complete Change Request in Jira (all sections + Risk Assessment) from a ticket ID. Documents the CR-project field gotchas (required EM/VP, CAB/BAU-must-be-empty-on-create, ADF fields). |
 | `/risk-assessment <ticket or PR>` | Generates a standalone Risk Assessment table for a Change Request. |
+| `/appsec-disposition <ticket>` | Investigates aged/open AppSec or pentest findings against the current code and dispositions each (mitigated / partial+follow-up / accepted risk) with `file:line` evidence. Drafts the Jira comments; posts only on your confirmation. |
+| `/rca <symptom or PR>` | Root-causes a production incident — proves the mechanism in code with evidence, judges whether the in-flight revert is correct, and produces a real fix plan + shareable RCA writeup. |
 | `/standup [days]` | Generates a standup summary from git, PRs, and Jira activity. Defaults to 1 day; use 3 for Monday. |
 
 ### Documentation Automation (NEW — Hackathon)
@@ -103,6 +114,7 @@ Automatically removes `Co-Authored-By:` lines from any AI assistant (Claude, Cop
 ./install.sh              # Full interactive setup
 ./install.sh --check      # Check tool dependencies only
 ./install.sh --configure  # Re-run configuration wizard
+./install.sh --settings   # Install/merge cost-optimized Claude settings (opusplan)
 ./install.sh --commands   # Install/update Claude commands only
 ./install.sh --hooks      # Install git hooks in the current repo
 ./install.sh --update     # Pull latest and reinstall commands

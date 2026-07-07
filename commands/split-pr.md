@@ -1,3 +1,7 @@
+---
+model: sonnet
+---
+
 Create a split PR pair from the current staged/unstaged changes.
 
 Ticket/context: $ARGUMENTS

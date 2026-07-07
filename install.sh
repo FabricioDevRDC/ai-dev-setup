@@ -8,6 +8,7 @@
 #   ./install.sh --commands   Install/update Claude commands only
 #   ./install.sh --hooks      Install git hooks only (for current repo)
 #   ./install.sh --configure  Re-run configuration wizard
+#   ./install.sh --settings   Install/merge cost-optimized Claude settings (opusplan)
 #   ./install.sh --update     Pull latest and reinstall commands
 
 set -e
@@ -21,7 +22,7 @@ print_banner() {
   echo ""
   echo -e "${BOLD}${CYAN}"
   echo "  ┌─────────────────────────────────────────┐"
-  echo "  │         ai-dev-setup  v2.0.0            │"
+  echo "  │         ai-dev-setup  v3.0.0            │"
   echo "  │   AI-powered developer environment      │"
   echo "  │  github.com/FabricioDevRDC/ai-dev-setup  │"
   echo "  └─────────────────────────────────────────┘"
@@ -89,6 +90,62 @@ generate_claude_md() {
   fi
 }
 
+# ─── Claude settings installer ─────────────────────────────────────────────────
+# Installs the recommended cost-efficient Claude Code settings (model: opusplan,
+# so Opus plans and Sonnet executes — keeps Opus quality where it matters while
+# cutting the cost of step execution). Non-destructive: merges into any existing
+# ~/.claude/settings.json with jq instead of overwriting.
+
+install_claude_settings() {
+  source "$HOME/.dev-setup-config" 2>/dev/null || true
+
+  step "Installing Claude Code settings (cost-optimized: model=opusplan)"
+
+  local settings_dir="$HOME/.claude"
+  local dest="$settings_dir/settings.json"
+  local tmpl="$SCRIPT_DIR/templates/claude-settings.json.template"
+  local jira_ws="${JIRA_WORKSPACE:-}"
+
+  mkdir -p "$settings_dir"
+
+  # Render the template (substitute JIRA_WORKSPACE placeholder)
+  local rendered
+  rendered=$(sed -e "s|{{JIRA_WORKSPACE}}|$jira_ws|g" "$tmpl")
+
+  if ! command -v jq &>/dev/null; then
+    warn "jq not found — cannot safely merge settings."
+    if [[ -f "$dest" ]]; then
+      warn "Leaving existing $dest untouched. Install jq (brew install jq) and re-run: ./install.sh --settings"
+      return 0
+    fi
+    echo "$rendered" > "$dest"
+    ok "Wrote $dest (install jq to enable safe merges on future runs)"
+    return 0
+  fi
+
+  if [[ -f "$dest" ]]; then
+    # Merge: existing settings win on conflicts EXCEPT model — set to opusplan
+    # unless the user already picked a non-Opus model on purpose.
+    # Union the allow/deny lists (template contributes, user's entries kept),
+    # union env, and normalize model to opusplan only if it's empty or plain Opus.
+    local merged
+    merged=$(jq -s '
+      .[0] as $tmpl | .[1] as $cur |
+      $cur
+      | .model = (if (($cur.model // "") == "") or ($cur.model | test("opus")) then $tmpl.model else $cur.model end)
+      | .permissions.defaultMode = ($cur.permissions.defaultMode // $tmpl.permissions.defaultMode)
+      | .permissions.allow = (((($cur.permissions.allow // []) + ($tmpl.permissions.allow // [])) | unique))
+      | .permissions.deny  = (((($cur.permissions.deny  // []) + ($tmpl.permissions.deny  // [])) | unique))
+      | .env = (($tmpl.env // {}) * ($cur.env // {}))
+    ' <(echo "$rendered") "$dest")
+    echo "$merged" > "$dest"
+    ok "Merged cost settings into existing $dest (model → opusplan)"
+  else
+    echo "$rendered" > "$dest"
+    ok "Created $dest with model=opusplan"
+  fi
+}
+
 # ─── Apply git config ──────────────────────────────────────────────────────────
 
 apply_git_config() {
@@ -135,6 +192,9 @@ full_setup() {
   if [[ "$INSTALL_COMMANDS" == "true" ]]; then
     install_commands
   fi
+
+  # 4b. Install cost-optimized Claude settings (model: opusplan)
+  install_claude_settings
 
   # 5. Install git hooks
   if [[ "$INSTALL_HOOKS_GLOBAL" == "true" ]]; then
@@ -184,12 +244,19 @@ case "${1:-}" in
     run_configure
     apply_git_config
     ;;
+  --settings)
+    print_banner
+    install_claude_settings
+    ;;
   --update)
     print_banner
     step "Updating ai-dev-setup"
-    git pull origin main
+    default_branch=$(git -C "$SCRIPT_DIR" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@refs/remotes/origin/@@')
+    default_branch="${default_branch:-master}"
+    git -C "$SCRIPT_DIR" pull origin "$default_branch"
     source "$SCRIPT_DIR/lib/install-commands.sh"
     install_commands
+    install_claude_settings
     ok "Updated to latest version."
     ;;
   --claude-md)
