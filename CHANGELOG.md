@@ -1,5 +1,24 @@
 # Changelog
 
+## v3.0.0 — Cost optimization + RDC workflow commands
+
+### Cost optimization (the headline)
+- **Default model is now `opusplan`** via the Claude settings template — Opus plans, Sonnet executes. Stops every trivial action from running on Opus.
+- **Every slash command now pins a model** in frontmatter by weight: `haiku` (mechanical: standup, branch-from-jira, pr-respond, opdev), `sonnet` (execution: test-gen, split-pr, doc-update, review-fix, risk-assessment), `opus` (reasoning: cr, review-pr, review-comment, rca, appsec-disposition, cve-fix, triage-ticket).
+- **Fixed dead code:** the `claude-settings.json.template` was never installed. `install.sh` now installs/merges it into `~/.claude/settings.json` non-destructively with `jq` (existing permissions/env preserved; model normalized off plain Opus). New flag `./install.sh --settings`.
+
+### New commands (reflect real RDC workflows)
+- `/review-pr <PRs>` — review one or many PRs, return a merge verdict each, and detect duplicate/conflicting/already-merged PRs. Supports parallel subagent review for large fan-outs.
+- `/appsec-disposition <ticket>` — investigate aged AppSec/pentest findings against current code and disposition each with `file:line` evidence (mitigated / partial+follow-up / accepted risk).
+- `/rca <symptom or PR>` — root-cause a production incident with proven code evidence, judge the in-flight revert, and produce a real fix plan.
+
+### Improvements
+- `/cr` now documents the moveinc CR-project field gotchas (required EM/VP, `CAB Required`/`BAU Deployment` must be empty on create, ADF-typed fields, edit-after-create for the rest).
+- Fixed `install.sh --update` to detect the repo's default branch (was hardcoded to `main`; repo is on `master`).
+- Version/banner bumped to v3.0.0 (README + install banner were out of sync).
+
+---
+
 ## v2.1.0 — 2026-04-24 (Hackathon: Documentation Automation)
 
 ### New commands

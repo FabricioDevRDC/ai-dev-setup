@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 Manage an opdev environment (create, sync, logs, shell, delete).
 
 Usage: $ARGUMENTS

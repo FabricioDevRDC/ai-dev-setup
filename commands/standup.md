@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 Generate a daily standup summary from git activity, open PRs, and Jira tickets.
 
 Optional argument: $ARGUMENTS  (number of days back, default: 1. Use 3 for Monday standup)

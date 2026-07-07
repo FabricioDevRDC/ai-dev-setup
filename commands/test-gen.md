@@ -1,3 +1,7 @@
+---
+model: sonnet
+---
+
 Generate integration or unit tests for a function or file, following the exact patterns of the project.
 
 Target: $ARGUMENTS  (file path, function name, or "file.py::function_name")

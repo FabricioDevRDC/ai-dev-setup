@@ -1,3 +1,7 @@
+---
+model: sonnet
+---
+
 Analyze a Jira ticket and generate a ready-to-execute implementation prompt for Windsurf Cascade.
 
 Jira ticket: $ARGUMENTS

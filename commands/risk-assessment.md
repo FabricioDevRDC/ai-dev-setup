@@ -1,3 +1,7 @@
+---
+model: sonnet
+---
+
 Generate a Risk Assessment table for a Change Request from a Jira ticket or PR.
 
 Input: $ARGUMENTS  (Jira ticket ID, PR number, or PR URL)

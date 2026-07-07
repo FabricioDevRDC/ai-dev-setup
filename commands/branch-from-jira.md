@@ -1,3 +1,7 @@
+---
+model: haiku
+---
+
 Create a properly named branch from a Jira ticket and scaffold the starting context.
 
 Jira ticket: $ARGUMENTS
